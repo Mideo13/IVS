@@ -1,20 +1,23 @@
-% Факты о читателях
-reader(r001, "Ivanov Ivan", student).
-reader(r002, "Petrova Anna", postgraduate).
-reader(r003, "Sidorov Petr", staff).
+% База фактов о книгах
+% book(BookID, Authors, Title, UDC, Section, Publisher, Year, Pages, Illustrated, Price, PurchaseDoc, EditionType, InventoryNumber, UsageDuration, HasScan)
+book(b1, "Cormen", "Introduction to Algorithms", "004.6", technical, "MIT Press", 2009, 1312, yes, 89.95, "CHK001", textbook, inv(1001), years(10), yes).
+book(b2, "Tanenbaum", "Computer Networks", "004.6", technical, "Prentice Hall", 2011, 960, yes, 59.50, "CHK002", textbook, inv(1002), years(8), yes).
+book(b3, "Roberts", "World History", "930", social, "Oxford", 2005, 720, no, 39.00, "CHK010", book, none, years(20), no).
+book(b4, "Rosen", "Discrete Mathematics", "511", technical, "McGraw-Hill", 2012, 832, no, 49.99, "CHK005", textbook, inv(1003), years(12), yes).
 
-% Факты о книгах
-book(b1, "Algorithms", "Cormen").
-book(b2, "Computer Networks", "Tanenbaum").
-book(b3, "World History", "Roberts").
-book(b4, "Discrete Math", "Rosen").
+% База фактов о читателях
+% reader(CardNumber, FullName, BirthYear, Address, RegDate, Type, Course, Group)
+reader(r001, "Ivanov Ivan Ivanovich", 2001, "ul. Uritskogo 10, Irkutsk", date(2020,9,1), student, 3, "EVMb-22-1").
+reader(r002, "Petrova Anna Sergeevna", 1998, "ul. Sergeeva 5, Irkutsk", date(2019,9,15), postgraduate, -, "-").
+reader(r003, "Sidorov Petr", 1975, "ul. Central 2, Angarsk", date(2015,1,20), staff, -, "-").
 
-% Факты о выдаче книг (связь N:M)
+% База фактов о выдаче книг (связь N:M)
+% loan(CardNumber, BookID, IssueDate)
 loan(r001, b1, date(2024,10,1)).
-loan(r001, b3, date(2025, 2,10)).
-loan(r002, b2, date(2025, 3, 5)).
+loan(r001, b3, date(2025,2,10)).
+loan(r002, b2, date(2025,3,5)).
 
-% Предикат для запуска опроса
+% Предикат для запуска интерактивного опроса
 start :-
     writeln("Welcome to the Library System!"),
     writeln("Please enter the reader card number to see their books."),
@@ -23,20 +26,18 @@ start :-
     show_books(Card),
     writeln("Thank you for using the Library System!").
 
-% Ввод номера читателя
+% Ввод номера читательского билета
 ask_reader(Card) :-
     writeln("Enter reader card number (r001, r002, r003):"),
     read(Card).
 
-% Результаты: книги, взятые читателем
+% Показать книги, взятые читателем
 show_books(Card) :-
-    reader(Card, Name, _),
-    writeln("Books taken by the reader:"),
-    writeln(Name),
-    nl,
-    findall((Title, Author, Date),
-            ( loan(Card, BookID, Date),
-              book(BookID, Title, Author)
+    reader(Card, Name, _, _, _, _, _, _),
+    write("Books taken by reader: "), writeln(Name), nl,
+    findall((Title, Authors, IssueDate),
+            (loan(Card, BookID, IssueDate),
+             book(BookID, Authors, Title, _, _, _, _, _, _, _, _, _, _, _, _)
             ),
             Matches),
     print_books(Matches).
@@ -44,14 +45,13 @@ show_books(Card) :-
 % Вывод списка книг
 print_books([]) :-
     writeln("No issued books found."), nl.
-
-print_books([(Title, Author, Date)|Rest]) :-
+print_books([(Title, Authors, IssueDate)|Rest]) :-
     writeln("Here are the results:"),
-    print_each([(Title, Author, Date)|Rest]).
+    print_each([(Title, Authors, IssueDate)|Rest]).
 
 print_each([]).
-print_each([(Title, Author, Date)|T]) :-
+print_each([(Title, Authors, IssueDate)|T]) :-
     format("Title: ~w~n", [Title]),
-    format("Author: ~w~n", [Author]),
-    format("Issue date: ~w~n~n", [Date]),
+    format("Authors: ~w~n", [Authors]),
+    format("Issue date: ~w~n~n", [IssueDate]),
     print_each(T).

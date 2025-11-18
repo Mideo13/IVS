@@ -1,0 +1,57 @@
+% Факты о читателях
+reader(r001, "Ivanov Ivan", student).
+reader(r002, "Petrova Anna", postgraduate).
+reader(r003, "Sidorov Petr", staff).
+
+% Факты о книгах
+book(b1, "Algorithms", "Cormen").
+book(b2, "Computer Networks", "Tanenbaum").
+book(b3, "World History", "Roberts").
+book(b4, "Discrete Math", "Rosen").
+
+% Факты о выдаче книг (связь N:M)
+loan(r001, b1, date(2024,10,1)).
+loan(r001, b3, date(2025, 2,10)).
+loan(r002, b2, date(2025, 3, 5)).
+
+% Предикат для запуска опроса
+start :-
+    writeln("Welcome to the Library System!"),
+    writeln("Please enter the reader card number to see their books."),
+    nl,
+    ask_reader(Card),
+    show_books(Card),
+    writeln("Thank you for using the Library System!").
+
+% Ввод номера читателя
+ask_reader(Card) :-
+    writeln("Enter reader card number (r001, r002, r003):"),
+    read(Card).
+
+% Результаты: книги, взятые читателем
+show_books(Card) :-
+    reader(Card, Name, _),
+    writeln("Books taken by the reader:"),
+    writeln(Name),
+    nl,
+    findall((Title, Author, Date),
+            ( loan(Card, BookID, Date),
+              book(BookID, Title, Author)
+            ),
+            Matches),
+    print_books(Matches).
+
+% Вывод списка книг
+print_books([]) :-
+    writeln("No issued books found."), nl.
+
+print_books([(Title, Author, Date)|Rest]) :-
+    writeln("Here are the results:"),
+    print_each([(Title, Author, Date)|Rest]).
+
+print_each([]).
+print_each([(Title, Author, Date)|T]) :-
+    format("Title: ~w~n", [Title]),
+    format("Author: ~w~n", [Author]),
+    format("Issue date: ~w~n~n", [Date]),
+    print_each(T).

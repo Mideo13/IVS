@@ -1,0 +1,13 @@
+/*Выполнить циклический сдвиг списка на заданное число
+элементов. Например, результат сдвига списка [a, b, c,
+d] на два элемента есть список [c, d, a, b].*/
+
+shift_left(List, N, X) :-
+    length(List, Len),
+    N1 is N mod Len,  
+    append(Front, Back, List),
+    length(Front, N1),
+    append(Back, Front, X).
+
+% ?- shift_left([1, 2, 3, 4, 5], 2, X).
+% X = [3, 4, 5, 1, 2].

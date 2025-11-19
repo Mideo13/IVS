@@ -11,3 +11,14 @@ shift_left(List, N, X) :-
 
 % ?- shift_left([1, 2, 3, 4, 5], 2, X).
 % X = [3, 4, 5, 1, 2].
+
+
+/*Сфоpмиpовать новый список, в котоpом каждый элемент
+исходного списка входит в новый список два pаза подряд.*/
+
+double_elements([], []).
+double_elements([H|T], [H,H|NewT]) :- double_elements(T, NewT).
+
+
+  %  ?- double_elements([1,2,3], NewList).
+  %  NewList = [1, 1, 2, 2, 3, 3]

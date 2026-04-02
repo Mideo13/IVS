@@ -3,127 +3,152 @@
 % чтобы в каждой линии (горизонтальной, вертикальной, диагональной) располагалось
 % четное число фишек.
 % ===========================================================
-% Значения клетки: 0 - пусто, 1 - фишка
-val(0).
-val(1).
 
-% Проверка списка на четную сумму элементов
-is_even(List) :-
-    sum_list(List, Sum),
-    Sum mod 2 =:= 0.
+; -----------------------------
+; ШАБЛОНЫ
+; -----------------------------
 
-% Генерация списка заданной длины
-gen_list(0, []).
-gen_list(N, [H|T]) :-
-    N > 0,
-    val(H),
-    N1 is N - 1,
-    gen_list(N1, T).
+(deftemplate cell
+  (slot row)
+  (slot col)
+  (slot value)) ; 0 или 1
 
-% -----------------------------------------------------------
-% Наивный алгоритм (полный перебор)
-% -----------------------------------------------------------
+(deftemplate size
+  (slot n))
 
-% Генерация матрицы N*N без проверок
-gen_matrix_naive(0, _, []).
-gen_matrix_naive(Rows, Cols, [Row|Rest]) :-
-    Rows > 0,
-    gen_list(Cols, Row),
-    Rows1 is Rows - 1,
-    gen_matrix_naive(Rows1, Cols, Rest).
+(deftemplate step
+  (slot row)
+  (slot col))
 
-% Проверка всех ограничений (строки, столбцы, диагонали)
-check_all(Matrix) :-
-    maplist(is_even, Matrix),
-    transpose(Matrix, Cols),
-    maplist(is_even, Cols),
-    diagonals(Matrix, D1, D2),
-    is_even(D1),
-    is_even(D2).
+(deftemplate solution)
+(deftemplate invalid)
 
-% Наивное решение: сначала генерируем, потом проверяем
-% Трудоемкость: O(2^(N*N)). Проверка выполняется в листьях дерева поиска.
-% Для N=4 перебираются 65536 вариантов.
-solve_naive(N, Matrix) :-
-    gen_matrix_naive(N, N, Matrix),
-    check_all(Matrix).
+; -----------------------------
+; НАЧАЛЬНЫЕ ДАННЫЕ
+; -----------------------------
 
-% -----------------------------------------------------------
-% Усовершенствованный алгоритм (с отсечением)
-% -----------------------------------------------------------
+(deffacts start
+  (size (n 4))        ; размер поля N×N 
+  (step (row 0) (col 0))
+)
 
-% Генерация с немедленной проверкой строк
-% Ускорение: Если сумма строки нечетная, алгоритм сразу делает откат.
-% Это отсекает 50% вариантов на каждом шаге генерации строки.
-gen_matrix_smart(0, _, []).
-gen_matrix_smart(Rows, Cols, [Row|Rest]) :-
-    Rows > 0,
-    gen_list(Cols, Row),
-    is_even(Row), % Отсечение (Pruning)
-    Rows1 is Rows - 1,
-    gen_matrix_smart(Rows1, Cols, Rest).
+; -----------------------------
+; ФУНКЦИЯ ПЕРЕХОДА К СЛЕДУЮЩЕЙ КЛЕТКЕ
+; -----------------------------
 
-% Оптимизированное решение
-solve_improved(N, Matrix) :-
-    gen_matrix_smart(N, N, Matrix),
-    transpose(Matrix, Cols),
-    maplist(is_even, Cols),
-    diagonals(Matrix, D1, D2),
-    is_even(D1),
-    is_even(D2).
+(deffunction next-step (?r ?c)
+  (bind ?n (fact-slot-value (find-fact ((?f size)) TRUE) n))
+  (if (< (+ ?c 1) ?n) then
+      (assert (step (row ?r) (col (+ ?c 1))))
+  else
+      (if (< (+ ?r 1) ?n) then
+          (assert (step (row (+ ?r 1)) (col 0)))
+      else
+          (assert (solution))
+      )
+  )
+)
 
-% -----------------------------------------------------------
-% Вспомогательные предикаты
-% -----------------------------------------------------------
+; -----------------------------
+; ГЕНЕРАЦИЯ ПЕРЕБОРНЫХ КОМБИНАЦИЙ
+; -----------------------------
 
-% Транспонирование матрицы
-transpose([], []).
-transpose([F|Fs], Ts) :- 
-    transpose(F, [F|Fs], Ts).
-transpose([], _, []).
-transpose([_|Rs], Ms, [Ts|Tss]) :- 
-    lists_firsts_rests(Ms, Ts, Ms1), 
-    transpose(Rs, Ms1, Tss).
+(defrule generate
+  ?s <- (step (row ?r) (col ?c))
+  =>
+  ; вариант 0
+  (assert (cell (row ?r) (col ?c) (value 0)))
+  (next-step ?r ?c)
 
-lists_firsts_rests([], [], []).
-lists_firsts_rests([[F|Os]|Rest], [F|Fs], [Os|Oss]) :- 
-    lists_firsts_rests(Rest, Fs, Oss).
+  ; вариант 1
+  (assert (cell (row ?r) (col ?c) (value 1)))
+  (next-step ?r ?c)
 
-% Получение диагоналей матрицы
-diagonals(Matrix, D1, D2) :-
-    main_diag(Matrix, 0, D1),
-    reverse(Matrix, RevM),
-    main_diag(RevM, 0, D2).
+  (retract ?s)
+)
 
-% Вспомогательный предикат для диагонали
-main_diag([], _, []).
-main_diag([Row|Rest], I, [X|Dr]) :-
-    nth0(I, Row, X),
-    I1 is I + 1,
-    main_diag(Rest, I1, Dr).
+; -----------------------------
+; ПРОВЕРКА СТРОК
+; -----------------------------
 
-% -----------------------------------------------------------
-% Запуск и сравнение
-% -----------------------------------------------------------
+(defrule check-rows
+  (size (n ?n))
+  =>
+  (loop-for-count (?i 0 (- ?n 1))
+    (bind ?sum 0)
+    (do-for-all-facts ((?c cell)) (eq ?c:row ?i)
+      (bind ?sum (+ ?sum ?c:value))
+    )
+    (if (neq (mod ?sum 2) 0) then
+        (assert (invalid))
+    )
+  )
+)
 
-% Запуск теста с замером времени
-run(N) :-
-    writeln('--- Naive Algorithm ---'),
-    statistics(runtime, [T0|_]),
-    (solve_naive(N, M1) -> print_matrix(M1); writeln('No solution')),
-    statistics(runtime, [T1|_]),
-    Time1 is T1 - T0,
-    format('Time: ~w ms~n', [Time1]),
-    nl,
-    writeln('--- Improved Algorithm ---'),
-    statistics(runtime, [T2|_]),
-    (solve_improved(N, M2) -> print_matrix(M2); writeln('No solution')),
-    statistics(runtime, [T3|_]),
-    Time2 is T3 - T2,
-    format('Time: ~w ms~n', [Time2]).
+; -----------------------------
+; ПРОВЕРКА СТОЛБЦОВ
+; -----------------------------
 
-% Вывод матрицы на экран
-print_matrix([]).
-print_matrix([Row|Rest]) :-
-    writeln(Row),
-    print_matrix(Rest).
+(defrule check-cols
+  (size (n ?n))
+  =>
+  (loop-for-count (?j 0 (- ?n 1))
+    (bind ?sum 0)
+    (do-for-all-facts ((?c cell)) (eq ?c:col ?j)
+      (bind ?sum (+ ?sum ?c:value))
+    )
+    (if (neq (mod ?sum 2) 0) then
+        (assert (invalid))
+    )
+  )
+)
+
+; -----------------------------
+; ПРОВЕРКА ДИАГОНАЛЕЙ
+; -----------------------------
+
+(defrule check-diagonals
+  (size (n ?n))
+  =>
+  (bind ?sum1 0)
+  (bind ?sum2 0)
+  (do-for-all-facts ((?c cell))
+    (if (eq ?c:row ?c:col) then
+      (bind ?sum1 (+ ?sum1 ?c:value))
+    )
+    (if (eq (+ ?c:row ?c:col) (- ?n 1)) then
+      (bind ?sum2 (+ ?sum2 ?c:value))
+    )
+  )
+  (if (or (neq (mod ?sum1 2) 0) (neq (mod ?sum2 2) 0)) then
+      (assert (invalid))
+  )
+)
+
+; -----------------------------
+; ОТСЕЧЕНИЕ (Pruning)
+; -----------------------------
+
+(defrule prune
+  ?i <- (invalid)
+  =>
+  (retract ?i)
+  (do-for-all-facts ((?c cell)) TRUE
+    (retract ?c)
+  )
+)
+
+; -----------------------------
+; ВЫВОД РЕШЕНИЯ
+; -----------------------------
+
+(defrule print-solution
+  (solution)
+  (not (invalid))
+  =>
+  (printout t "Solution:" crlf)
+  (do-for-all-facts ((?c cell)) TRUE
+    (printout t "Row " ?c:row " Col " ?c:col " = " ?c:value crlf)
+  )
+  (printout t "------------------------" crlf)
+)
